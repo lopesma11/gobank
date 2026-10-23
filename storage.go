@@ -9,6 +9,7 @@ import (
 type Storage interface {
 	CreateAccount(*Account) error
 	GetAccountByID(int) (*Account, error)
+	GetAccounts() ([]*Account, error)
 	UpdateAccount(int) error
 	DeleteAccount(int) error
 }
@@ -53,12 +54,59 @@ func (s *PostgresStore) createAccountTable() error {
 	return err
 }
 
-func (s *PostgresStore) CreateAccount(*Account) error {
+func (s *PostgresStore) CreateAccount(acc *Account) error {
+	query := `
+		INSERT INTO account (firstName, lastName, numberAccount, balance, createdAt)
+		VALUES ($1, $2, $3, $4, $5)`
+
+	resp, err:= s.db.Query(
+		query, 
+		acc.FirstName, 
+		acc.LastName, 
+		acc.NumberAccount,
+		acc.Balance,
+		acc.CreatedAt
+	)
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (s *PostgresStore) GetAccountByID(id int) (*Account, error) {
 	return nil, nil
+}
+
+func (s *PostgresStore) GetAccounts() ([]*Account, error) {
+	rows, err := s.db.Query(`SELECT * FROM account `)
+	if err != nil {
+		return nil, err
+	}
+
+	accounts := []*Account{}
+
+	for rows.Next() {
+			account := new(Account)
+			if err := rows.Scan(
+				&account.ID,
+				&account.FirstName,
+				&account.LastName,
+				&account.NumberAccount,
+				&account.Balance,
+				&account.CreatedAt,
+			); err != nil {
+				return nil, err
+			}
+			accounts = append(accounts, account)
+		}
+
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+
+	return accounts, nil
 }
 
 func (s *PostgresStore) UpdateAccount(id int) error {
