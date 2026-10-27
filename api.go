@@ -26,7 +26,7 @@ func (s *APIServer) Run() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/account", makeHTTPHandleFunc(s.handleAccount))
-	router.HandleFunc("/account/{id}", withJWTAuth(makeHTTPHandleFunc(s.handleGetAccountById)))
+	router.HandleFunc("/account/{id}", withJWTAuth(makeHTTPHandleFunc(s.handleGetAccountById), s.store))
 	router.HandleFunc("/transfer", makeHTTPHandleFunc(s.handleTransfer))
 
 	log.Println("JSON API Server running on port:", s.listenAddr)
@@ -136,19 +136,23 @@ func createJWT(account *Account) (string, error) {
 	secret := os.Getenv("JWT_SECRET")
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	
-	return token.SignedString(secret)
+	return token.SignedString([]byte(secret))
 }
 
 // TODO: install jwt-go
-func withJWTAuth(handlerFunc http.HandlerFunc) http.HandlerFunc {
+func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("calling JWT auth middleware")
 
 		tokenString := r.Header.Get("x-jwt-token")
-		_, err := validateJWT(tokenString)
+		token, err := validateJWT(tokenString)
 		if err != nil {
 			WriteJSON(w, http.StatusForbidden, ApiError{Error: "invalid token"})
 			return 
+		}
+
+		if !token.Valid {
+			WriteJSON(w, http.StatusForbidden, ApiError{Error: "invalid token"})
 		}
 
 		handlerFunc(w, r)
