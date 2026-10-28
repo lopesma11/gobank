@@ -139,6 +139,10 @@ func createJWT(account *Account) (string, error) {
 	return token.SignedString([]byte(secret))
 }
 
+func permissionDenied(w http.ResponseWriter) {
+	WriteJSON(w, http.StatusForbidden, ApiError{Error: "permission denied"})
+}
+
 // TODO: install jwt-go
 func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -147,12 +151,38 @@ func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
 		tokenString := r.Header.Get("x-jwt-token")
 		token, err := validateJWT(tokenString)
 		if err != nil {
-			WriteJSON(w, http.StatusForbidden, ApiError{Error: "invalid token"})
+			permissionDenied(w)
+			return 
+		}
+		if !token.Valid {
+			permissionDenied(w)
+			return 
+		}
+		userID, err := getID(r)
+		if err != nil {
+			permissionDenied(w)
+			return 
+		}
+		account, err := s.GetAccountByID(userID)
+		if err != nil {
+			permissionDenied(w)
+			return
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			permissionDenied(w)
+			return
+		}
+
+		if account.NumberAccount != claims["accountNumber"] {
+			permissionDenied(w)
 			return 
 		}
 
-		if !token.Valid {
+		if err != nil {
 			WriteJSON(w, http.StatusForbidden, ApiError{Error: "invalid token"})
+			return
 		}
 
 		handlerFunc(w, r)
