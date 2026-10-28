@@ -175,7 +175,7 @@ func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
 			return
 		}
 
-		if account.NumberAccount != claims["accountNumber"] {
+		if account.NumberAccount != int64(claims["accountNumber"].(float64)) {
 			permissionDenied(w)
 			return 
 		}
