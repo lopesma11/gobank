@@ -25,15 +25,24 @@ type Account struct {
 	FirstName     string    `json:"firstName"`
 	LastName      string    `json:"lastName"`
 	NumberAccount int64     `json:"numberAccount"`
+	EncryptedPassword string `json:"-"`
 	Balance       int64     `json:"balance"`
 	CreatedAt     time.Time `json:"createdAt"`
 }
 
-func NewAccount(FirstName, LastName string) *Account {
+
+// TO DO: install bcrypt 
+func NewAccount(FirstName, LastName, password string) (*Account, error) {
+	encpw, err := bcrypt.GenerateFromPassword([]byte (password), bcrypt.DefaultCost) 
+	if err != nil {
+		return nil, err
+	}
+
 	return &Account{
 		FirstName:     FirstName,
 		LastName:      LastName,
+		EncryptedPassword: string(encpw),
 		NumberAccount: int64(rand.IntN(1000000)),
 		CreatedAt:     time.Now().UTC(),
-	}
+	}, nil
 }
