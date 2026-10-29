@@ -38,6 +38,7 @@ func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != http.MethodPost {
 		return fmt.Errorf("method not allowed %s", r.Method)
 	}
+
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return err	
@@ -45,12 +46,24 @@ func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
 
 	acc, err := s.store.GetAccountByNumber(int(req.Number))
 	if err != nil {
-		return err 
+		return fmt.Errorf("not authenticated")
 	}
-	
-	fmt.Printf("%+v\n", acc)
 
-	return WriteJSON(w, http.StatusOK, req)
+	if !acc.ValidPassword(req.Password) {
+		return fmt.Errorf("not authenticated")
+	}
+
+	token, err := createJWT(acc)
+	if err != nil {
+		return err
+	}
+
+	resp := LoginResponse{
+		Token: token, 
+		Number: acc.Number,
+	}
+
+	return WriteJSON(w, http.StatusOK, resp)
 }
 
 func (s *APIServer) handleAccount(w http.ResponseWriter, r *http.Request) error {
